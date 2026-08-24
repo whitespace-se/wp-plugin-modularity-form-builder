@@ -32,6 +32,50 @@ class App
         add_action('admin_head', array($this, 'jsonSelectedValues'));
 
         add_filter('/Modularity/externalViewPath', array($this, 'addTemplatePaths'));
+        add_filter('acf/load_field/name=auto_reply_recipient', array($this, 'autoReplyRecipientChoices'));
+    }
+
+    /**
+     * Populate the auto reply recipient setting with e-mail fields from the form.
+     *
+     * @param array $field ACF field configuration.
+     * @return array
+     */
+    public function autoReplyRecipientChoices($field)
+    {
+        $field['choices'] = array();
+        $postId = get_the_ID();
+
+        if (!$postId || get_post_type($postId) !== $this->postType) {
+            return $field;
+        }
+
+        $formFields = get_field('form_fields', $postId);
+        if (!is_array($formFields)) {
+            return $field;
+        }
+
+        foreach ($formFields as $formField) {
+            $layout = $formField['acf_fc_layout'] ?? '';
+
+            if ($layout === 'email' && !empty($formField['label'])) {
+                $field['choices'][sanitize_title($formField['label'])] = $formField['label'];
+                continue;
+            }
+
+            if ($layout !== 'sender' || !in_array('email', $formField['fields'] ?? array(), true)) {
+                continue;
+            }
+
+            $labels = Helper\SenderLabels::getLabels();
+            if (!empty($formField['custom_sender_labels']['add_sender_labels'])) {
+                $labels = array_merge($labels, array_filter($formField['custom_sender_labels']));
+            }
+
+            $field['choices'][sanitize_title($labels['email'])] = $labels['email'];
+        }
+
+        return $field;
     }
 
     /**

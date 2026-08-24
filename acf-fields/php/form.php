@@ -2521,6 +2521,37 @@
             'ui_off_text' => '',
         ),
         19 => array(
+            'key' => 'field_68ac40e10f001',
+            'label' => __('Mottagare av autosvar', 'modularity-form-builder'),
+            'name' => 'auto_reply_recipient',
+            'aria-label' => '',
+            'type' => 'select',
+            'instructions' => __('Välj det e-postfält som innehåller mottagarens adress. Spara formulärets fält först för att uppdatera listan.', 'modularity-form-builder'),
+            'required' => 1,
+            'conditional_logic' => array(
+                0 => array(
+                    0 => array(
+                        'field' => 'field_58f5be7475dbf',
+                        'operator' => '==',
+                        'value' => '1',
+                    ),
+                ),
+            ),
+            'wrapper' => array(
+                'width' => '',
+                'class' => '',
+                'id' => '',
+            ),
+            'choices' => array(),
+            'default_value' => false,
+            'allow_null' => 0,
+            'multiple' => 0,
+            'ui' => 0,
+            'ajax' => 0,
+            'return_format' => 'value',
+            'placeholder' => '',
+        ),
+        20 => array(
             'key' => 'field_58f5bf7329b3f',
             'label' => __('Ämne för autosvar', 'modularity-form-builder'),
             'name' => 'auto_reply_subject',
@@ -2548,7 +2579,7 @@
             'prepend' => '',
             'append' => '',
         ),
-        20 => array(
+        21 => array(
             'key' => 'field_58f5bea775dc0',
             'label' => __('Meddelande för autosvar', 'modularity-form-builder'),
             'name' => 'auto_reply_content',

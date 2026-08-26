@@ -2522,12 +2522,12 @@
             },
             "choices": [],
             "default_value": false,
-            "allow_null": 0,
+            "allow_null": 1,
             "multiple": 0,
             "ui": 0,
             "ajax": 0,
             "return_format": "value",
-            "placeholder": ""
+            "placeholder": "Välj e-postfält"
         },
         {
             "key": "field_58f5bf7329b3f",

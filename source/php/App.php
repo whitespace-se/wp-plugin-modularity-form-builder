@@ -58,7 +58,10 @@ class App
         foreach ($formFields as $formField) {
             $layout = $formField['acf_fc_layout'] ?? '';
 
-            if ($layout === 'email' && !empty($formField['label'])) {
+            $isEmailField = $layout === 'email' ||
+                ($layout === 'input' && ($formField['value_type'] ?? '') === 'email');
+
+            if ($isEmailField && !empty($formField['label'])) {
                 $field['choices'][sanitize_title($formField['label'])] = $formField['label'];
                 continue;
             }

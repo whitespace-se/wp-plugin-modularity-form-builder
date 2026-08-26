@@ -2607,7 +2607,7 @@
             'default_value' => '',
             'delay' => 0,
         ),
-        21 => array(
+        22 => array(
             'key' => 'field_5a12ad75f9444',
             'label' => __('Avancerade inställningar', 'modularity-form-builder'),
             'name' => '',
@@ -2624,7 +2624,7 @@
             'placement' => 'top',
             'endpoint' => 0,
         ),
-        22 => array(
+        23 => array(
             'key' => 'field_5a1837b50079f',
             'label' => __('Spara till posttyp', 'modularity-form-builder'),
             'name' => 'custom_submission_post_type',
@@ -2644,7 +2644,7 @@
             'ui_on_text' => '',
             'ui_off_text' => '',
         ),
-        23 => array(
+        24 => array(
             'key' => 'field_5a059dcc4c2a0',
             'label' => __('Posttyp', 'modularity-form-builder'),
             'name' => 'submission_post_type',
@@ -2687,7 +2687,7 @@
             'allow_custom' => 0,
             'search_placeholder' => '',
         ),
-        24 => array(
+        25 => array(
             'key' => 'field_5a12ae16f9445',
             'label' => __('Redigerbar för användaren', 'modularity-form-builder'),
             'name' => 'editable_front_end',
@@ -2707,7 +2707,7 @@
             'ui_on_text' => '',
             'ui_off_text' => '',
         ),
-        25 => array(
+        26 => array(
             'key' => 'field_5a12afecf9446',
             'label' => __('Redigerbar för redaktör', 'modularity-form-builder'),
             'name' => 'editable_back_end',
@@ -2727,7 +2727,7 @@
             'ui_on_text' => '',
             'ui_off_text' => '',
         ),
-        26 => array(
+        27 => array(
             'key' => 'field_5b51a469880c0',
             'label' => __('GDPR & Confidentiality', 'modularity-form-builder'),
             'name' => '',
@@ -2744,7 +2744,7 @@
             'placement' => 'top',
             'endpoint' => 0,
         ),
-        27 => array(
+        28 => array(
             'key' => 'field_59df53ac189b8',
             'label' => __('Notis om allmän handling', 'modularity-form-builder'),
             'name' => 'submission_public_act',
@@ -2764,7 +2764,7 @@
             'ui_on_text' => '',
             'ui_off_text' => '',
         ),
-        28 => array(
+        29 => array(
             'key' => 'field_5b51c75ca46d1',
             'label' => __('Public act content', 'modularity-form-builder'),
             'name' => 'submission_public_act_content',
@@ -2793,7 +2793,7 @@
             'new_lines' => '',
             'acfe_textarea_code' => 0,
         ),
-        29 => array(
+        30 => array(
             'key' => 'field_5b3c8d3f4e20a',
             'label' => __('GDPR överensstämmelsemeddelande', 'modularity-form-builder'),
             'name' => 'gdpr_complience_notice',
@@ -2813,7 +2813,7 @@
             'ui_on_text' => '',
             'ui_off_text' => '',
         ),
-        30 => array(
+        31 => array(
             'key' => 'field_5b3c8e0a6e7f2',
             'label' => __('Innehåll för GDPR meddelande', 'modularity-form-builder'),
             'name' => 'gdpr_complience_notice_content',
@@ -2841,7 +2841,7 @@
             'media_upload' => 0,
             'delay' => 0,
         ),
-        31 => array(
+        32 => array(
             'key' => 'field_5b2a3840ff029',
             'label' => __('Databaslagring', 'modularity-form-builder'),
             'name' => 'db_storage',
@@ -2861,7 +2861,7 @@
             'ui_on_text' => '',
             'ui_off_text' => '',
         ),
-        32 => array(
+        33 => array(
             'key' => 'field_5b3384dbf9cac',
             'label' => __('Användarbegränsning', 'modularity-form-builder'),
             'name' => 'user_restriction',
@@ -2889,7 +2889,7 @@
             'ui_on_text' => '',
             'ui_off_text' => '',
         ),
-        33 => array(
+        34 => array(
             'key' => 'field_5b338525f9cad',
             'label' => __('Betrodda användare', 'modularity-form-builder'),
             'name' => 'granted_users',

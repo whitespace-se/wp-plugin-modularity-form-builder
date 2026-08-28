@@ -213,7 +213,8 @@ class Submission
             $autoReplyEmail = $this->resolveAutoReplyRecipient(
                 get_field('auto_reply_recipient', $_POST['modularity-form-id']),
                 $fromEmail,
-                $_POST
+                $_POST,
+                (array) get_field('form_fields', $_POST['modularity-form-id'])
             );
             $this->autoreply($autoReplyEmail, $submission, $autoReplyFrom);
         }
@@ -771,22 +772,44 @@ class Submission
      * Standalone form fields are prefixed with their flexible-content index,
      * while fields in the sender group use their unprefixed label slug.
      *
-     * @param string|null $recipientField Configured field label slug.
+     * @param string|null $recipientField Configured stable ID or legacy field name.
      * @param string|null $fallback       Sender-group e-mail for legacy forms.
      * @param array       $postData       Submitted form data.
+     * @param array       $formFields     Current form field configuration.
      * @return string|null
      */
-    public function resolveAutoReplyRecipient($recipientField, $fallback, array $postData)
+    public function resolveAutoReplyRecipient($recipientField, $fallback, array $postData, array $formFields = array())
     {
         if (empty($recipientField)) {
             return is_email($fallback) ? sanitize_email($fallback) : null;
         }
 
         $recipientField = sanitize_title($recipientField);
-        $fieldNamePattern = '/^id-\d+-' . preg_quote($recipientField, '/') . '$/';
+
+        if (strpos($recipientField, 'field-') === 0) {
+            $fieldId = substr($recipientField, strlen('field-'));
+            $recipientField = null;
+
+            foreach ($formFields as $index => $formField) {
+                if (sanitize_key($formField['field_id'] ?? '') !== $fieldId || empty($formField['label'])) {
+                    continue;
+                }
+
+                $recipientField = 'id-' . $index . '-' . sanitize_title($formField['label']);
+                break;
+            }
+
+            if (!$recipientField) {
+                return null;
+            }
+        }
+
+        $fieldNamePattern = strpos($recipientField, 'id-') === 0
+            ? null
+            : '/^id-\d+-' . preg_quote($recipientField, '/') . '$/';
 
         foreach ($postData as $key => $value) {
-            if ($key !== $recipientField && !preg_match($fieldNamePattern, $key)) {
+            if ($key !== $recipientField && (!$fieldNamePattern || !preg_match($fieldNamePattern, $key))) {
                 continue;
             }
 

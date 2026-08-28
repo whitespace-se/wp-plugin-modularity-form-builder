@@ -32,7 +32,55 @@ class App
         add_action('admin_head', array($this, 'jsonSelectedValues'));
 
         add_filter('/Modularity/externalViewPath', array($this, 'addTemplatePaths'));
+        add_filter('acf/load_field/name=form_fields', array($this, 'addStableFieldIdSubfields'));
+        add_filter('acf/load_value/name=field_id', array($this, 'ensureStableFieldId'));
         add_filter('acf/load_field/name=auto_reply_recipient', array($this, 'autoReplyRecipientChoices'));
+    }
+
+    /**
+     * Add an internal stable identifier to e-mail-capable form field rows.
+     *
+     * @param array $field ACF field configuration.
+     * @return array
+     */
+    public function addStableFieldIdSubfields($field)
+    {
+        foreach ($field['layouts'] ?? array() as &$layout) {
+            if (!in_array($layout['name'] ?? '', array('input', 'email'), true)) {
+                continue;
+            }
+
+            foreach ($layout['sub_fields'] ?? array() as $subField) {
+                if (($subField['name'] ?? '') === 'field_id') {
+                    continue 2;
+                }
+            }
+
+            $layout['sub_fields'][] = array(
+                'key' => 'field_mfb_stable_id_' . sanitize_key($layout['key']),
+                'label' => '',
+                'name' => 'field_id',
+                'type' => 'text',
+                'wrapper' => array('class' => 'acf-hidden'),
+                'readonly' => 1,
+            );
+        }
+
+        return $field;
+    }
+
+    /**
+     * Assign an identifier to a row that predates stable field IDs.
+     *
+     * The hidden value is persisted the next time the form is saved and moves
+     * with its flexible-content row when fields are reordered.
+     *
+     * @param string|null $value Stored ACF value.
+     * @return string
+     */
+    public function ensureStableFieldId($value)
+    {
+        return $value ?: wp_generate_uuid4();
     }
 
     /**
@@ -55,15 +103,17 @@ class App
             return $field;
         }
 
-        foreach ($formFields as $index => $formField) {
+        foreach ($formFields as $formField) {
             $layout = $formField['acf_fc_layout'] ?? '';
 
             $isEmailField = $layout === 'email' ||
                 ($layout === 'input' && ($formField['value_type'] ?? '') === 'email');
 
             if ($isEmailField && !empty($formField['label'])) {
-                $fieldName = 'id-' . $index . '-' . sanitize_title($formField['label']);
-                $field['choices'][$fieldName] = $formField['label'];
+                $fieldId = sanitize_key($formField['field_id'] ?? '');
+                if ($fieldId) {
+                    $field['choices']['field-' . $fieldId] = $formField['label'];
+                }
                 continue;
             }
 

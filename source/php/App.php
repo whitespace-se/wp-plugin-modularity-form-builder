@@ -55,14 +55,15 @@ class App
             return $field;
         }
 
-        foreach ($formFields as $formField) {
+        foreach ($formFields as $index => $formField) {
             $layout = $formField['acf_fc_layout'] ?? '';
 
             $isEmailField = $layout === 'email' ||
                 ($layout === 'input' && ($formField['value_type'] ?? '') === 'email');
 
             if ($isEmailField && !empty($formField['label'])) {
-                $field['choices'][sanitize_title($formField['label'])] = $formField['label'];
+                $fieldName = 'id-' . $index . '-' . sanitize_title($formField['label']);
+                $field['choices'][$fieldName] = $formField['label'];
                 continue;
             }
 

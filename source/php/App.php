@@ -33,7 +33,7 @@ class App
 
         add_filter('/Modularity/externalViewPath', array($this, 'addTemplatePaths'));
         add_filter('acf/load_field/name=form_fields', array($this, 'addStableFieldIdSubfields'));
-        add_filter('acf/load_value/name=field_id', array($this, 'ensureStableFieldId'));
+        add_filter('acf/load_value', array($this, 'ensureStableFieldId'), 10, 3);
         add_filter('acf/load_field/name=auto_reply_recipient', array($this, 'autoReplyRecipientChoices'));
     }
 
@@ -75,11 +75,17 @@ class App
      * The hidden value is persisted the next time the form is saved and moves
      * with its flexible-content row when fields are reordered.
      *
-     * @param string|null $value Stored ACF value.
+     * @param string|null $value  Stored ACF value.
+     * @param mixed       $postId Post ID.
+     * @param array       $field  ACF field configuration.
      * @return string
      */
-    public function ensureStableFieldId($value)
+    public function ensureStableFieldId($value, $postId, $field)
     {
+        if (strpos($field['key'] ?? '', 'field_mfb_stable_id_') !== 0) {
+            return $value;
+        }
+
         return $value ?: wp_generate_uuid4();
     }
 

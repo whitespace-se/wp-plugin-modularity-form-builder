@@ -795,8 +795,11 @@ class Submission
                     continue;
                 }
 
+                if ($recipientField !== null) {
+                    return null;
+                }
+
                 $recipientField = 'id-' . $index . '-' . sanitize_title($formField['label']);
-                break;
             }
 
             if (!$recipientField) {

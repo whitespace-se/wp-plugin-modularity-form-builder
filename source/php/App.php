@@ -33,7 +33,8 @@ class App
 
         add_filter('/Modularity/externalViewPath', array($this, 'addTemplatePaths'));
         add_filter('acf/load_field/name=form_fields', array($this, 'addStableFieldIdSubfields'));
-        add_filter('acf/load_value', array($this, 'ensureStableFieldId'), 10, 3);
+        add_filter('acf/load_value', array($this, 'ensureUniqueStableFieldId'), 10, 3);
+        add_filter('acf/update_value', array($this, 'ensureUniqueStableFieldId'), 10, 3);
         add_filter('acf/load_field/name=auto_reply_recipient', array($this, 'autoReplyRecipientChoices'));
     }
 
@@ -70,7 +71,8 @@ class App
     }
 
     /**
-     * Assign an identifier to a row that predates stable field IDs.
+     * Assign a unique identifier to a row that predates stable field IDs or
+     * inherited one when another flexible-content row was duplicated.
      *
      * The hidden value is persisted the next time the form is saved and moves
      * with its flexible-content row when fields are reordered.
@@ -80,13 +82,27 @@ class App
      * @param array       $field  ACF field configuration.
      * @return string
      */
-    public function ensureStableFieldId($value, $postId, $field)
+    public function ensureUniqueStableFieldId($value, $postId, $field)
     {
+        static $stableFieldIdOwners = array();
+
         if (strpos($field['key'] ?? '', 'field_mfb_stable_id_') !== 0) {
             return $value;
         }
 
-        return $value ?: wp_generate_uuid4();
+        $owner = (string) ($field['name'] ?? $field['key']);
+        $value = sanitize_key((string) $value);
+        $scopedId = $postId . ':' . $value;
+
+        while (!$value ||
+            (isset($stableFieldIdOwners[$scopedId]) && $stableFieldIdOwners[$scopedId] !== $owner)) {
+            $value = wp_generate_uuid4();
+            $scopedId = $postId . ':' . $value;
+        }
+
+        $stableFieldIdOwners[$scopedId] = $owner;
+
+        return $value;
     }
 
     /**

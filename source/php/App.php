@@ -33,8 +33,8 @@ class App
 
         add_filter('/Modularity/externalViewPath', array($this, 'addTemplatePaths'));
         add_filter('acf/load_field/name=form_fields', array($this, 'addStableFieldIdSubfields'));
-        add_filter('acf/load_value', array($this, 'ensureUniqueStableFieldId'), 10, 3);
-        add_filter('acf/update_value', array($this, 'ensureUniqueStableFieldId'), 10, 3);
+        add_filter('acf/load_value', array($this, 'ensureStableFieldId'), 20, 3);
+        add_filter('acf/update_value', array($this, 'normalizeStableFieldIds'), 5, 3);
         add_filter('acf/load_field/name=auto_reply_recipient', array($this, 'autoReplyRecipientChoices'));
     }
 
@@ -71,8 +71,7 @@ class App
     }
 
     /**
-     * Assign a unique identifier to a row that predates stable field IDs or
-     * inherited one when another flexible-content row was duplicated.
+     * Assign an identifier to a row that predates stable field IDs.
      *
      * The hidden value is persisted the next time the form is saved and moves
      * with its flexible-content row when fields are reordered.
@@ -82,27 +81,124 @@ class App
      * @param array       $field  ACF field configuration.
      * @return string
      */
-    public function ensureUniqueStableFieldId($value, $postId, $field)
+    public function ensureStableFieldId($value, $postId, $field)
     {
-        static $stableFieldIdOwners = array();
-
         if (strpos($field['key'] ?? '', 'field_mfb_stable_id_') !== 0) {
             return $value;
         }
 
-        $owner = (string) ($field['name'] ?? $field['key']);
-        $value = sanitize_key((string) $value);
-        $scopedId = $postId . ':' . $value;
+        return $value ?: wp_generate_uuid4();
+    }
 
-        while (!$value ||
-            (isset($stableFieldIdOwners[$scopedId]) && $stableFieldIdOwners[$scopedId] !== $owner)) {
-            $value = wp_generate_uuid4();
-            $scopedId = $postId . ':' . $value;
+    /**
+     * Ensure stable IDs are unique across the complete submitted form.
+     *
+     * This runs before ACF's flexible-content update handler. Reordered rows
+     * retain their IDs, while empty IDs and later copies of an existing ID get
+     * new values.
+     *
+     * @param mixed $value  Submitted ACF value.
+     * @param mixed $postId Post ID.
+     * @param array $field  ACF field configuration.
+     * @return mixed
+     */
+    public function normalizeStableFieldIds($value, $postId, $field)
+    {
+        if (($field['key'] ?? '') !== 'field_58eb302883a68' || !is_array($value)) {
+            return $value;
         }
 
-        $stableFieldIdOwners[$scopedId] = $owner;
+        $firstRowsById = array();
+        $reservedIds = array();
+
+        foreach ($value as $rowIndex => $row) {
+            if ($rowIndex === 'acfcloneindex' || !is_array($row) || empty($row['acf_fc_layout'])) {
+                continue;
+            }
+
+            $valueKey = $this->stableFieldIdValueKeyForRow($row, $field);
+            if (!$valueKey) {
+                continue;
+            }
+
+            $fieldId = sanitize_key((string) ($row[$valueKey] ?? ''));
+            if (!$fieldId) {
+                continue;
+            }
+
+            if (!array_key_exists($fieldId, $firstRowsById)) {
+                $firstRowsById[$fieldId] = $rowIndex;
+            }
+            $reservedIds[$fieldId] = true;
+        }
+
+        foreach ($value as $rowIndex => &$row) {
+            if ($rowIndex === 'acfcloneindex' || !is_array($row) || empty($row['acf_fc_layout'])) {
+                continue;
+            }
+
+            $valueKey = $this->stableFieldIdValueKeyForRow($row, $field);
+            if (!$valueKey) {
+                continue;
+            }
+
+            $fieldId = sanitize_key((string) ($row[$valueKey] ?? ''));
+            $isFirstExistingId = $fieldId && $firstRowsById[$fieldId] === $rowIndex;
+
+            if (!$isFirstExistingId) {
+                do {
+                    $fieldId = sanitize_key((string) wp_generate_uuid4());
+                } while (!$fieldId || isset($reservedIds[$fieldId]));
+
+                $reservedIds[$fieldId] = true;
+            }
+
+            $row[$valueKey] = $fieldId;
+        }
+        unset($row);
 
         return $value;
+    }
+
+    /**
+     * Find the injected stable-ID subfield key for a flexible-content layout.
+     *
+     * @param string $layoutName Layout name.
+     * @param array  $field      Flexible-content field configuration.
+     * @return string|null
+     */
+    private function stableFieldIdKeyForLayout($layoutName, $field)
+    {
+        foreach ($field['layouts'] ?? array() as $layout) {
+            if (($layout['name'] ?? '') !== $layoutName) {
+                continue;
+            }
+
+            foreach ($layout['sub_fields'] ?? array() as $subField) {
+                if (($subField['name'] ?? '') === 'field_id') {
+                    return $subField['key'];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find where a row stores its stable ID in raw or formatted ACF data.
+     *
+     * @param array $row   Form row.
+     * @param array $field Flexible-content field configuration.
+     * @return string|null
+     */
+    private function stableFieldIdValueKeyForRow($row, $field)
+    {
+        $fieldIdKey = $this->stableFieldIdKeyForLayout($row['acf_fc_layout'], $field);
+        if (!$fieldIdKey) {
+            return null;
+        }
+
+        return array_key_exists($fieldIdKey, $row) ? $fieldIdKey : 'field_id';
     }
 
     /**

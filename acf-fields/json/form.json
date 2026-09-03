@@ -2499,6 +2499,37 @@
             "ui_off_text": ""
         },
         {
+            "key": "field_68ac40e10f001",
+            "label": "Mottagare av autosvar",
+            "name": "auto_reply_recipient",
+            "aria-label": "",
+            "type": "select",
+            "instructions": "V\u00e4lj det e-postf\u00e4lt som inneh\u00e5ller mottagarens adress. Spara formul\u00e4rets f\u00e4lt f\u00f6rst f\u00f6r att uppdatera listan.",
+            "required": 1,
+            "conditional_logic": [
+                [
+                    {
+                        "field": "field_58f5be7475dbf",
+                        "operator": "==",
+                        "value": "1"
+                    }
+                ]
+            ],
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "choices": [],
+            "default_value": false,
+            "allow_null": 1,
+            "multiple": 0,
+            "ui": 0,
+            "ajax": 0,
+            "return_format": "value",
+            "placeholder": "Välj e-postfält"
+        },
+        {
             "key": "field_58f5bf7329b3f",
             "label": "\u00c4mne f\u00f6r autosvar",
             "name": "auto_reply_subject",
@@ -2901,4 +2932,3 @@
     "acfe_meta": "",
     "acfe_note": ""
 }]
-

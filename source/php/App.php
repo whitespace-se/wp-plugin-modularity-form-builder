@@ -32,6 +32,222 @@ class App
         add_action('admin_head', array($this, 'jsonSelectedValues'));
 
         add_filter('/Modularity/externalViewPath', array($this, 'addTemplatePaths'));
+        add_filter('acf/load_field/name=form_fields', array($this, 'addStableFieldIdSubfields'));
+        add_filter('acf/load_value', array($this, 'ensureStableFieldId'), 20, 3);
+        add_filter('acf/update_value', array($this, 'normalizeStableFieldIds'), 5, 3);
+        add_filter('acf/load_field/name=auto_reply_recipient', array($this, 'autoReplyRecipientChoices'));
+    }
+
+    /**
+     * Add an internal stable identifier to e-mail-capable form field rows.
+     *
+     * @param array $field ACF field configuration.
+     * @return array
+     */
+    public function addStableFieldIdSubfields($field)
+    {
+        foreach ($field['layouts'] ?? array() as &$layout) {
+            if (!in_array($layout['name'] ?? '', array('input', 'email'), true)) {
+                continue;
+            }
+
+            foreach ($layout['sub_fields'] ?? array() as $subField) {
+                if (($subField['name'] ?? '') === 'field_id') {
+                    continue 2;
+                }
+            }
+
+            $layout['sub_fields'][] = array(
+                'key' => 'field_mfb_stable_id_' . sanitize_key($layout['key']),
+                'label' => '',
+                'name' => 'field_id',
+                'type' => 'text',
+                'wrapper' => array('class' => 'acf-hidden'),
+                'readonly' => 1,
+            );
+        }
+
+        return $field;
+    }
+
+    /**
+     * Assign an identifier to a row that predates stable field IDs.
+     *
+     * The hidden value is persisted the next time the form is saved and moves
+     * with its flexible-content row when fields are reordered.
+     *
+     * @param string|null $value  Stored ACF value.
+     * @param mixed       $postId Post ID.
+     * @param array       $field  ACF field configuration.
+     * @return string
+     */
+    public function ensureStableFieldId($value, $postId, $field)
+    {
+        if (strpos($field['key'] ?? '', 'field_mfb_stable_id_') !== 0) {
+            return $value;
+        }
+
+        return $value ?: wp_generate_uuid4();
+    }
+
+    /**
+     * Ensure stable IDs are unique across the complete submitted form.
+     *
+     * This runs before ACF's flexible-content update handler. Reordered rows
+     * retain their IDs, while empty IDs and later copies of an existing ID get
+     * new values.
+     *
+     * @param mixed $value  Submitted ACF value.
+     * @param mixed $postId Post ID.
+     * @param array $field  ACF field configuration.
+     * @return mixed
+     */
+    public function normalizeStableFieldIds($value, $postId, $field)
+    {
+        if (($field['key'] ?? '') !== 'field_58eb302883a68' || !is_array($value)) {
+            return $value;
+        }
+
+        $firstRowsById = array();
+        $reservedIds = array();
+
+        foreach ($value as $rowIndex => $row) {
+            if ($rowIndex === 'acfcloneindex' || !is_array($row) || empty($row['acf_fc_layout'])) {
+                continue;
+            }
+
+            $valueKey = $this->stableFieldIdValueKeyForRow($row, $field);
+            if (!$valueKey) {
+                continue;
+            }
+
+            $fieldId = sanitize_key((string) ($row[$valueKey] ?? ''));
+            if (!$fieldId) {
+                continue;
+            }
+
+            if (!array_key_exists($fieldId, $firstRowsById)) {
+                $firstRowsById[$fieldId] = $rowIndex;
+            }
+            $reservedIds[$fieldId] = true;
+        }
+
+        foreach ($value as $rowIndex => &$row) {
+            if ($rowIndex === 'acfcloneindex' || !is_array($row) || empty($row['acf_fc_layout'])) {
+                continue;
+            }
+
+            $valueKey = $this->stableFieldIdValueKeyForRow($row, $field);
+            if (!$valueKey) {
+                continue;
+            }
+
+            $fieldId = sanitize_key((string) ($row[$valueKey] ?? ''));
+            $isFirstExistingId = $fieldId && $firstRowsById[$fieldId] === $rowIndex;
+
+            if (!$isFirstExistingId) {
+                do {
+                    $fieldId = sanitize_key((string) wp_generate_uuid4());
+                } while (!$fieldId || isset($reservedIds[$fieldId]));
+
+                $reservedIds[$fieldId] = true;
+            }
+
+            $row[$valueKey] = $fieldId;
+        }
+        unset($row);
+
+        return $value;
+    }
+
+    /**
+     * Find the injected stable-ID subfield key for a flexible-content layout.
+     *
+     * @param string $layoutName Layout name.
+     * @param array  $field      Flexible-content field configuration.
+     * @return string|null
+     */
+    private function stableFieldIdKeyForLayout($layoutName, $field)
+    {
+        foreach ($field['layouts'] ?? array() as $layout) {
+            if (($layout['name'] ?? '') !== $layoutName) {
+                continue;
+            }
+
+            foreach ($layout['sub_fields'] ?? array() as $subField) {
+                if (($subField['name'] ?? '') === 'field_id') {
+                    return $subField['key'];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find where a row stores its stable ID in raw or formatted ACF data.
+     *
+     * @param array $row   Form row.
+     * @param array $field Flexible-content field configuration.
+     * @return string|null
+     */
+    private function stableFieldIdValueKeyForRow($row, $field)
+    {
+        $fieldIdKey = $this->stableFieldIdKeyForLayout($row['acf_fc_layout'], $field);
+        if (!$fieldIdKey) {
+            return null;
+        }
+
+        return array_key_exists($fieldIdKey, $row) ? $fieldIdKey : 'field_id';
+    }
+
+    /**
+     * Populate the auto reply recipient setting with e-mail fields from the form.
+     *
+     * @param array $field ACF field configuration.
+     * @return array
+     */
+    public function autoReplyRecipientChoices($field)
+    {
+        $field['choices'] = array();
+        $postId = get_the_ID();
+
+        if (!$postId || get_post_type($postId) !== $this->postType) {
+            return $field;
+        }
+
+        $formFields = get_field('form_fields', $postId);
+        if (!is_array($formFields)) {
+            return $field;
+        }
+
+        foreach ($formFields as $formField) {
+            $layout = $formField['acf_fc_layout'] ?? '';
+
+            $isEmailField = $layout === 'email' ||
+                ($layout === 'input' && ($formField['value_type'] ?? '') === 'email');
+
+            if ($isEmailField && !empty($formField['label'])) {
+                $fieldId = sanitize_key($formField['field_id'] ?? '');
+                if ($fieldId) {
+                    $field['choices']['field-' . $fieldId] = $formField['label'];
+                }
+                continue;
+            }
+
+            if ($layout !== 'sender' || !in_array('email', $formField['fields'] ?? array(), true)) {
+                continue;
+            }
+
+            $labels = Helper\SenderLabels::getLabels();
+            if (!empty($formField['custom_sender_labels']['add_sender_labels'])) {
+                $labels = array_merge($labels, array_filter($formField['custom_sender_labels']));
+            }
+
+            $field['choices'][sanitize_title($labels['email'])] = $labels['email'];
+        }
+
+        return $field;
     }
 
     /**

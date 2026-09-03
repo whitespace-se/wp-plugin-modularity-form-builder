@@ -210,7 +210,13 @@ class Submission
         }
         // Send auto reply
         if (get_field('autoreply', $_POST['modularity-form-id'])) {
-            $this->autoreply($fromEmail, $submission, $autoReplyFrom);
+            $autoReplyEmail = $this->resolveAutoReplyRecipient(
+                get_field('auto_reply_recipient', $_POST['modularity-form-id']),
+                $fromEmail,
+                $_POST,
+                (array) get_field('form_fields', $_POST['modularity-form-id'])
+            );
+            $this->autoreply($autoReplyEmail, $submission, $autoReplyFrom);
         }
         $referer = parse_url($referer, PHP_URL_PATH);
         // Redirect
@@ -733,6 +739,11 @@ class Submission
      */
     public function autoreply($email, $submissionId, $from = null)
     {
+        if (!$email || !is_email($email)) {
+            error_log("Could not send autoreply: no valid recipient e-mail address was submitted.");
+            return;
+        }
+
         $headers = array('Content-Type: text/html; charset=UTF-8');
         if (!is_null($from) && !empty($from)) {
             $headers[] = 'From: ' . $from;
@@ -753,5 +764,64 @@ class Submission
         if (!wp_mail($email, $subject, $message, $headers)) {
             error_log("Could not send autoreply to sender.");
         }
+    }
+
+    /**
+     * Resolve the configured auto reply recipient from submitted form data.
+     *
+     * Standalone form fields are prefixed with their flexible-content index,
+     * while fields in the sender group use their unprefixed label slug.
+     *
+     * @param string|null $recipientField Configured stable ID or legacy field name.
+     * @param string|null $fallback       Sender-group e-mail for legacy forms.
+     * @param array       $postData       Submitted form data.
+     * @param array       $formFields     Current form field configuration.
+     * @return string|null
+     */
+    public function resolveAutoReplyRecipient($recipientField, $fallback, array $postData, array $formFields = array())
+    {
+        if (empty($recipientField)) {
+            return is_email($fallback) ? sanitize_email($fallback) : null;
+        }
+
+        $recipientField = sanitize_title($recipientField);
+
+        if (strpos($recipientField, 'field-') === 0) {
+            $fieldId = substr($recipientField, strlen('field-'));
+            $recipientField = null;
+
+            foreach ($formFields as $index => $formField) {
+                if (sanitize_key($formField['field_id'] ?? '') !== $fieldId || empty($formField['label'])) {
+                    continue;
+                }
+
+                if ($recipientField !== null) {
+                    return null;
+                }
+
+                $recipientField = 'id-' . $index . '-' . sanitize_title($formField['label']);
+            }
+
+            if (!$recipientField) {
+                return null;
+            }
+        }
+
+        $fieldNamePattern = strpos($recipientField, 'id-') === 0
+            ? null
+            : '/^id-\d+-' . preg_quote($recipientField, '/') . '$/';
+
+        foreach ($postData as $key => $value) {
+            if ($key !== $recipientField && (!$fieldNamePattern || !preg_match($fieldNamePattern, $key))) {
+                continue;
+            }
+
+            $value = is_string($value) ? sanitize_email(wp_unslash($value)) : '';
+            if (is_email($value)) {
+                return $value;
+            }
+        }
+
+        return null;
     }
 }

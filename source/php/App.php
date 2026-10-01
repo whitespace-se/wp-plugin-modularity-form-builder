@@ -32,42 +32,9 @@ class App
         add_action('admin_head', array($this, 'jsonSelectedValues'));
 
         add_filter('/Modularity/externalViewPath', array($this, 'addTemplatePaths'));
-        add_filter('acf/load_field/name=form_fields', array($this, 'addStableFieldIdSubfields'));
         add_filter('acf/load_value', array($this, 'ensureStableFieldId'), 20, 3);
         add_filter('acf/update_value', array($this, 'normalizeStableFieldIds'), 5, 3);
         add_filter('acf/load_field/name=auto_reply_recipient', array($this, 'autoReplyRecipientChoices'));
-    }
-
-    /**
-     * Add an internal stable identifier to e-mail-capable form field rows.
-     *
-     * @param array $field ACF field configuration.
-     * @return array
-     */
-    public function addStableFieldIdSubfields($field)
-    {
-        foreach ($field['layouts'] ?? array() as &$layout) {
-            if (!in_array($layout['name'] ?? '', array('input', 'email'), true)) {
-                continue;
-            }
-
-            foreach ($layout['sub_fields'] ?? array() as $subField) {
-                if (($subField['name'] ?? '') === 'field_id') {
-                    continue 2;
-                }
-            }
-
-            $layout['sub_fields'][] = array(
-                'key' => 'field_mfb_stable_id_' . sanitize_key($layout['key']),
-                'label' => '',
-                'name' => 'field_id',
-                'type' => 'text',
-                'wrapper' => array('class' => 'acf-hidden'),
-                'readonly' => 1,
-            );
-        }
-
-        return $field;
     }
 
     /**
@@ -83,11 +50,22 @@ class App
      */
     public function ensureStableFieldId($value, $postId, $field)
     {
+        static $generatedValues = array();
+
         if (strpos($field['key'] ?? '', 'field_mfb_stable_id_') !== 0) {
             return $value;
         }
 
-        return $value ?: wp_generate_uuid4();
+        if ($value) {
+            return $value;
+        }
+
+        $valueKey = (string) $postId . ':' . ($field['name'] ?? $field['key']);
+        if (!isset($generatedValues[$valueKey])) {
+            $generatedValues[$valueKey] = wp_generate_uuid4();
+        }
+
+        return $generatedValues[$valueKey];
     }
 
     /**
